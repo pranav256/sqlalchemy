@@ -506,7 +506,7 @@ class EagerTest(_fixtures.FixtureTest, testing.AssertsCompiledSQL):
         mapper(User, users, properties=dict(
             addresses=relationship(Address, lazy='subquery',
                                    backref=sa.orm.backref(
-                                       'user', lazy='subquery'),
+                                       'user', lazy='subquery',),
                                    order_by=Address.id)
         ))
         is_(sa.orm.class_mapper(User).get_property('addresses').lazy,
@@ -712,7 +712,6 @@ class EagerTest(_fixtures.FixtureTest, testing.AssertsCompiledSQL):
         result = q.order_by(User.id).limit(2).offset(1).all()
         eq_(self.static.user_all_result[1:3], result)
 
-        sess = create_session()
         result = q.order_by(sa.desc(User.id)).limit(2).offset(2).all()
         eq_(list(reversed(self.static.user_all_result[0:2])), result)
 
