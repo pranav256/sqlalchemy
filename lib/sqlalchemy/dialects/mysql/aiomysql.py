@@ -11,6 +11,10 @@ r"""
     :connectstring: mysql+aiomysql://user:password@host:port/dbname[?key=value&key=value...]
     :url: https://github.com/aio-libs/aiomysql
 
+.. warning:: The aiomysql dialect as of September, 2021 appears to be unmaintained
+   and no longer functions for Python version 3.10.   Please refer to the
+   :ref:`asyncmy` dialect for current MySQL asyncio functionality.
+
 The aiomysql dialect is SQLAlchemy's second Python asyncio dialect.
 
 Using a special asyncio mediation layer, the aiomysql dialect is usable
@@ -21,13 +25,7 @@ This dialect should normally be used only with the
 :func:`_asyncio.create_async_engine` engine creation function::
 
     from sqlalchemy.ext.asyncio import create_async_engine
-    engine = create_async_engine("mysql+aiomysql://user:pass@hostname/dbname")
-
-Unicode
--------
-
-Please see :ref:`mysql_unicode` for current recommendations on unicode
-handling.
+    engine = create_async_engine("mysql+aiomysql://user:pass@hostname/dbname?charset=utf8mb4")
 
 
 """  # noqa
