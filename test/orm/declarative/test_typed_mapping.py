@@ -383,6 +383,8 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         assert isinstance(User.__table__.c.created_at.type, DateTime)
 
     def test_construct_lhs_type_missing(self, decl_base):
+        # anno only: global MyClass
+
         class MyClass:
             pass
 
@@ -468,6 +470,7 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         self, decl_base: Type[DeclarativeBase]
     ):
         """neat!!!"""
+        # anno only: global str50, str30, opt_str50, opt_str30
 
         str50 = Annotated[str, 50]
         str30 = Annotated[str, 30]
@@ -515,6 +518,8 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     ):
         """https://twitter.com/zzzeek/status/1536693554621341697"""
 
+        global SomeRelated
+
         class SomeRelated(decl_base):
             __tablename__: ClassVar[Optional[str]] = "some_related"
             id: Mapped["int"] = mapped_column(primary_key=True)
@@ -538,6 +543,8 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """extraction of mapped_column() from the Annotated type
 
         https://twitter.com/zzzeek/status/1536693554621341697"""
+        # anno only: global intpk, strnone, str30nullable
+        # anno only: global opt_strnone, opt_str30
 
         intpk = Annotated[int, mapped_column(primary_key=True)]
 
@@ -591,6 +598,8 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
         https://twitter.com/zzzeek/status/1536693554621341697"""
 
+        # anno only: global intpk, strnone, str30nullable
+        # anno only: global opt_strnone, opt_str30
         intpk = Annotated[int, mapped_column(primary_key=True)]
 
         strnone = Annotated[str, mapped_column()]  # str -> NOT NULL
@@ -630,6 +639,7 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_extract_fk_col_from_pep593(
         self, decl_base: Type[DeclarativeBase]
     ):
+        # anno only: global intpk, element_ref
         intpk = Annotated[int, mapped_column(primary_key=True)]
         element_ref = Annotated[int, mapped_column(ForeignKey("element.id"))]
 
@@ -690,6 +700,7 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         include_existing_col,
         optional,
     ):
+        # anno only: global intpk, element_ref
         intpk = Annotated[int, mapped_column(primary_key=True)]
 
         args = []
@@ -755,6 +766,7 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         optional,
         include_existing_col,
     ):
+        # anno only: global intpk, element_ref
         intpk = Annotated[int, mapped_column(primary_key=True)]
 
         if specify_identity:
@@ -816,6 +828,7 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         value,
         override_value,
     ):
+        # anno only: global intpk, element_ref
         intpk = Annotated[int, mapped_column(primary_key=True)]
 
         args = []
@@ -1082,9 +1095,12 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         (float, types.Float),
         (datetime.datetime, types.DateTime),
         (uuid.UUID, types.Uuid),
-        argnames="pytype,sqltype",
+        argnames="pytype_arg,sqltype",
     )
-    def test_datatype_lookups(self, decl_base, pytype, sqltype):
+    def test_datatype_lookups(self, decl_base, pytype_arg, sqltype):
+        # anno only: global pytype
+        pytype = pytype_arg
+
         class MyClass(decl_base):
             __tablename__ = "mytable"
             id: Mapped[int] = mapped_column(primary_key=True)
@@ -1324,6 +1340,8 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             data: Mapped[str]
             a: A = relationship("A", back_populates="bs")
 
+        Base.registry.configure()
+
         self.assert_compile(
             select(A).join(A.bs),
             "SELECT a.id, a.data FROM a JOIN b ON a.id = b.a_id",
@@ -1554,9 +1572,12 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     @testing.combinations(
         "direct_name", "indirect_name", argnames="indirect_name"
     )
-    def test_indirect_name(
+    def test_indirect_name_collection(
         self, decl_base, include_relationship, indirect_name
     ):
+        """test #8759"""
+        # anno only: global B_
+
         class B(decl_base):
             __tablename__ = "b"
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -1584,6 +1605,49 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         self.assert_compile(
             select(A).join(A.bs),
             "SELECT a.id, a.data FROM a JOIN b ON a.id = b.a_id",
+        )
+
+    @testing.combinations(
+        "include_relationship",
+        "no_relationship",
+        argnames="include_relationship",
+    )
+    @testing.combinations(
+        "direct_name", "indirect_name", argnames="indirect_name"
+    )
+    def test_indirect_name_scalar(
+        self, decl_base, include_relationship, indirect_name
+    ):
+        """test #8759"""
+        # anno only: global A_
+
+        class A(decl_base):
+            __tablename__ = "a"
+
+            id: Mapped[int] = mapped_column(primary_key=True)
+            data: Mapped[str] = mapped_column()
+
+        A_ = A
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id: Mapped[int] = mapped_column(Integer, primary_key=True)
+            a_id: Mapped[int] = mapped_column(ForeignKey("a.id"))
+
+            if indirect_name == "indirect_name":
+                if include_relationship == "include_relationship":
+                    a: Mapped[A_] = relationship("A")
+                else:
+                    a: Mapped[A_] = relationship()
+            else:
+                if include_relationship == "include_relationship":
+                    a: Mapped[A] = relationship("A")
+                else:
+                    a: Mapped[A] = relationship()
+
+        self.assert_compile(
+            select(B).join(B.a),
+            "SELECT b.id, b.a_id FROM b JOIN a ON a.id = b.a_id",
         )
 
 
@@ -1679,28 +1743,31 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             # round trip!
             eq_(u1.address, Address("123 anywhere street", "NY", "12345"))
 
-    def test_no_fwd_ref_annotated_setup(self, decl_base):
+    def test_annotated_setup(self, decl_base):
+        global Address
+
         @dataclasses.dataclass
         class Address:
             street: str
             state: str
             zip_: str
 
-        with expect_raises_message(
-            ArgumentError,
-            r"Can't use forward ref ForwardRef\('Address'\) "
-            r"for composite class argument",
-        ):
+        class User(decl_base):
+            __tablename__ = "user"
 
-            class User(decl_base):
-                __tablename__ = "user"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            name: Mapped[str] = mapped_column()
 
-                id: Mapped[int] = mapped_column(primary_key=True)
-                name: Mapped[str] = mapped_column()
+            address: Mapped["Address"] = composite(
+                mapped_column(), mapped_column(), mapped_column("zip")
+            )
 
-                address: Mapped["Address"] = composite(
-                    mapped_column(), mapped_column(), mapped_column("zip")
-                )
+        self.assert_compile(
+            select(User),
+            'SELECT "user".id, "user".name, "user".street, '
+            '"user".state, "user".zip FROM "user"',
+            dialect="default",
+        )
 
     def test_fwd_ref_plus_no_mapped(self, decl_base):
         @dataclasses.dataclass
@@ -1722,6 +1789,8 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 )
 
     def test_extract_from_pep593(self, decl_base):
+        # anno only: global Address
+
         @dataclasses.dataclass
         class Address:
             street: str
@@ -1746,6 +1815,8 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
     def test_cls_not_composite_compliant(self, decl_base):
+        # anno only: global Address
+
         class Address:
             def __init__(self, street: int, state: str, zip_: str):
                 pass
@@ -1771,6 +1842,8 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 )
 
     def test_fwd_ref_ok_explicit_cls(self, decl_base):
+        # anno only: global Address
+
         @dataclasses.dataclass
         class Address:
             street: str
@@ -1833,6 +1906,8 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
     def test_cls_annotated_setup(self, decl_base):
+        # anno only: global Address
+
         @dataclasses.dataclass
         class Address:
             street: str
@@ -1867,6 +1942,8 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             eq_(u1.address, Address("123 anywhere street", "NY", "12345"))
 
     def test_cls_annotated_no_mapped_cols_setup(self, decl_base):
+        # anno only: global Address
+
         @dataclasses.dataclass
         class Address:
             street: str
@@ -1935,7 +2012,7 @@ class AllYourFavoriteHitsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
     def test_employee_joined_inh(self, decl_base: Type[DeclarativeBase]):
-
+        # anno only: global str50, str30, opt_str50
         str50 = Annotated[str, 50]
         str30 = Annotated[str, 30]
         opt_str50 = Optional[str50]
@@ -2057,6 +2134,7 @@ class GenericMappingQueryTest(AssertsCompiledSQL, fixtures.TestBase):
 
     @testing.fixture
     def mapping(self):
+        # anno only: global T_Value
         T_Value = TypeVar("T_Value")
 
         class SomeBaseClass(DeclarativeBase):
